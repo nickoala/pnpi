@@ -396,6 +396,7 @@ func OpenAccessoryModeStack() *AccessoryModeStack {
         }
 
         if !identityToSwitch.Nil() {
+            log.Printf("Requesting switch: %v", identityToSwitch)
             err := requestSwitch(identityToSwitch)
             if err != nil {
                 log.Printf("Cannot switch to accessory mode: %v, %v", identityToSwitch, err)
