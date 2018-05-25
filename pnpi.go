@@ -4,6 +4,8 @@ import (
     "fmt"
     "log"
     "io"
+    "os"
+    "path/filepath"
     "encoding/json"
     "encoding/binary"
     "github.com/google/gousb"
@@ -247,6 +249,25 @@ func Interact(stack *AccessoryModeStack) {
 }
 
 func main() {
+    dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
+    if err != nil {
+        log.Fatal(err)
+    }
+    ScriptDirectory = dir
+
+    // Check raspi-config present
+    raspiconfigLocation := filepath.Join(ScriptDirectory, "raspi-config")
+    info, err := os.Stat(raspiconfigLocation)
+    if err != nil {
+        log.Fatalf("%s not found: %v", raspiconfigLocation, err)
+    }
+
+    // Check executable bits set
+    mode := info.Mode()
+    if (mode & 0x49 != 0x49) {  // 0x49 == 001001001
+        log.Fatalf("%s must be always executable, e.g. rwxr-xr-x", raspiconfigLocation)
+    }
+
     for {
         func() {
             s := OpenAccessoryModeStack()

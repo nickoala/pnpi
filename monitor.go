@@ -5,7 +5,6 @@ import (
     "log"
     "strings"
     "net"
-    "os/exec"
     "time"
 )
 
@@ -51,31 +50,12 @@ func (m ServiceMap) Values() []Service {
     return ss
 }
 
-func findSSID(name string) string {
-    out, err := exec.Command("iwgetid", name, "--raw").Output()
-    if err != nil {
-        log.Println("Cannot obtain SSID:", err)
-        return ""
-    }
-    return strings.TrimSuffix(string(out), "\n")
-}
-
-func defaultWlan() string {
-    out, err := raspi_config_nonint("list_wlan_interfaces")
+func gatherInterfaces() NetworkInterfaceMap {
+    wlan00, err := DefaultWlanInterface()
     if err != nil {
         log.Println("Cannot obtain default wlan:", err)
-        return ""
     }
 
-    // Imitate raspi-config taking the first line.
-    return strings.SplitN(out, "\n", 2)[0]
-    // In the case of no wlan, output will be "\n".
-    // SplitN("\n", "\n", 1) return ["\n"], but I want an empty string.
-    // Thus, '2' above.
-}
-
-func gatherInterfaces() NetworkInterfaceMap {
-    wlan00 := defaultWlan()
     isDefaultWlan := func (n string) bool {
         return n == wlan00
     }
@@ -111,7 +91,11 @@ func gatherInterfaces() NetworkInterfaceMap {
         }
 
         if strings.HasPrefix(i.Name, "wlan") && ps.Size() > 0 {
-            ssid := findSSID(i.Name)
+            ssid, err := ReportSsid(i.Name)
+            if err != nil {
+                log.Println("Cannot obtain SSID:", err)
+            }
+
             ifmap[i.Name] = NetworkInterface{
                                     Name: i.Name,
                                     IPs: ps,
@@ -127,15 +111,12 @@ func gatherInterfaces() NetworkInterfaceMap {
     return ifmap
 }
 
-func processExists(name string) bool {
-    err := exec.Command("pgrep", name).Run()
-	  return err == nil
-}
-
 func gatherServices() ServiceMap {
+    ssh,_ := ServiceIsRunning("SSH")
+    vnc,_ := ServiceIsRunning("VNC")
     return ServiceMap{
-        "SSH": Service{"SSH", processExists("sshd")},
-        "VNC": Service{"VNC", processExists("vncserver")},
+        "SSH": Service{"SSH", ssh},
+        "VNC": Service{"VNC", vnc},
     }
 }
 

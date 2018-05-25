@@ -1,0 +1,194 @@
+#!/bin/sh
+# Adapted from raspi-config https://github.com/RPi-Distro/raspi-config
+
+get_ssh() {
+  if service ssh status | grep -q inactive; then
+    echo 1
+  else
+    echo 0
+  fi
+}
+
+do_ssh() {
+  if [ -e /var/log/regen_ssh_keys.log ] && ! grep -q "^finished" /var/log/regen_ssh_keys.log; then
+    # Initial ssh key generation still running. Please wait and try again.
+    return 1
+  fi
+
+  RET=$1
+
+  if [ $RET -eq 0 ]; then
+    update-rc.d ssh enable &&
+    invoke-rc.d ssh start &&
+    STATUS=enabled
+  elif [ $RET -eq 1 ]; then
+    update-rc.d ssh disable &&
+    invoke-rc.d ssh stop &&
+    STATUS=disabled
+  else
+    return $RET
+  fi
+}
+
+get_vnc() {
+  if systemctl status vncserver-x11-serviced.service  | grep -q inactive; then
+    echo 1
+  else
+    echo 0
+  fi
+}
+
+do_vnc() {
+  RET=$1
+
+  if [ $RET -eq 0 ]; then
+    if [ ! -d /usr/share/doc/realvnc-vnc-server ] ; then
+      # apt-get install realvnc-vnc-server
+      return 1
+    fi
+    systemctl enable vncserver-x11-serviced.service &&
+    systemctl start vncserver-x11-serviced.service &&
+    STATUS=enabled
+  elif [ $RET -eq 1 ]; then
+    systemctl disable vncserver-x11-serviced.service &&
+    systemctl stop vncserver-x11-serviced.service &&
+    STATUS=disabled
+  else
+    return $RET
+  fi
+}
+
+list_wlan_interfaces() {
+  for dir in /sys/class/net/*/wireless; do
+    if [ -d "$dir" ]; then
+      basename "$(dirname "$dir")"
+    fi
+  done
+}
+
+do_wifi_ssid_passphrase() {
+  RET=0
+  IFACE_LIST="$(list_wlan_interfaces)"
+  IFACE="$(echo "$IFACE_LIST" | head -n 1)"
+
+  if [ -z "$IFACE" ]; then
+    # No wireless interface found
+    return 1
+  fi
+
+  if ! wpa_cli -i "$IFACE" status > /dev/null 2>&1; then
+    # Could not communicate with wpa_supplicant
+    return 1
+  fi
+
+  SSID="$1"
+  PASSPHRASE="$2"
+
+  # Escape special characters for embedding in regex below
+  local ssid="$(echo "$SSID" \
+   | sed 's;\\;\\\\;g' \
+   | sed -e 's;\.;\\\.;g' \
+         -e 's;\*;\\\*;g' \
+         -e 's;\+;\\\+;g' \
+         -e 's;\?;\\\?;g' \
+         -e 's;\^;\\\^;g' \
+         -e 's;\$;\\\$;g' \
+         -e 's;\/;\\\/;g' \
+         -e 's;\[;\\\[;g' \
+         -e 's;\];\\\];g' \
+         -e 's;{;\\{;g'   \
+         -e 's;};\\};g'   \
+         -e 's;(;\\(;g'   \
+         -e 's;);\\);g'   \
+         -e 's;";\\\\\";g')"
+
+  wpa_cli -i "$IFACE" list_networks \
+   | tail -n +2 | cut -f -2 | grep -P "\t$ssid$" | cut -f1 \
+   | while read ID; do
+    wpa_cli -i "$IFACE" remove_network "$ID" > /dev/null 2>&1
+  done
+
+  ID="$(wpa_cli -i "$IFACE" add_network)"
+  wpa_cli -i "$IFACE" set_network "$ID" ssid "\"$SSID\"" 2>&1 | grep -q "OK"
+  RET=$((RET + $?))
+
+  if [ -z "$PASSPHRASE" ]; then
+    wpa_cli -i "$IFACE" set_network "$ID" key_mgmt NONE 2>&1 | grep -q "OK"
+    RET=$((RET + $?))
+  else
+    wpa_cli -i "$IFACE" set_network "$ID" psk "\"$PASSPHRASE\"" 2>&1 | grep -q "OK"
+    RET=$((RET + $?))
+  fi
+
+  if [ $RET -eq 0 ]; then
+    wpa_cli -i "$IFACE" enable_network "$ID" > /dev/null 2>&1
+  else
+    wpa_cli -i "$IFACE" remove_network "$ID" > /dev/null 2>&1
+    # Failed to set SSID or passphrase
+  fi
+  wpa_cli -i "$IFACE" save_config > /dev/null 2>&1
+
+  echo "$IFACE_LIST" | while read IFACE; do
+    wpa_cli -i "$IFACE" reconfigure > /dev/null 2>&1
+  done
+
+  wpa_cli -i "$IFACE" reassociate > /dev/null 2>&1
+
+  return $RET
+}
+
+do_wifi_ssid_disconnect() {
+  IFACE_LIST="$(list_wlan_interfaces)"
+  IFACE="$(echo "$IFACE_LIST" | head -n 1)"
+
+  if [ -z "$IFACE" ]; then
+    # No wireless interface found
+    return 1
+  fi
+
+  if ! wpa_cli -i "$IFACE" status > /dev/null 2>&1; then
+    # Could not communicate with wpa_supplicant
+    return 1
+  fi
+
+  SSID="$1"
+
+  local ssid="$(echo "$SSID" \
+   | sed 's;\\;\\\\;g' \
+   | sed -e 's;\.;\\\.;g' \
+         -e 's;\*;\\\*;g' \
+         -e 's;\+;\\\+;g' \
+         -e 's;\?;\\\?;g' \
+         -e 's;\^;\\\^;g' \
+         -e 's;\$;\\\$;g' \
+         -e 's;\/;\\\/;g' \
+         -e 's;\[;\\\[;g' \
+         -e 's;\];\\\];g' \
+         -e 's;{;\\{;g'   \
+         -e 's;};\\};g'   \
+         -e 's;(;\\(;g'   \
+         -e 's;);\\);g'   \
+         -e 's;";\\\\\";g')"
+
+  wpa_cli -i "$IFACE" list_networks \
+   | tail -n +2 | cut -f -2 | grep -P "\t$ssid$" | cut -f1 \
+   | while read ID; do
+    wpa_cli -i "$IFACE" remove_network "$ID" > /dev/null 2>&1
+  done
+
+  wpa_cli -i "$IFACE" save_config > /dev/null 2>&1
+
+  echo "$IFACE_LIST" | while read IFACE; do
+    wpa_cli -i "$IFACE" reconfigure > /dev/null 2>&1
+  done
+
+  wpa_cli -i "$IFACE" disconnect > /dev/null 2>&1
+}
+
+# Everything else needs to be run as root
+if [ $(id -u) -ne 0 ]; then
+  printf "Script must be run as root. Try 'sudo raspi-config'\n"
+  exit 1
+fi
+
+"$@"
