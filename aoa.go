@@ -334,7 +334,7 @@ func switchToAccessoryMode(d *gousb.Device) (err error) {
 
     const (
         manufacturer = "Nick Lee of Hong Kong"
-        model = "PnPi Server"
+        model = "Plug n Pi Server"
         description = "The Raspberry side of Plug n Pi"
         protocolVersion = "1"
         uri = "https://github.com/nickoala/pnpi"

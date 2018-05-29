@@ -68,6 +68,22 @@ func WifiScan(in <-chan int, out chan<- *ScanResult, notify chan<- int, id int) 
     ticker := time.NewTicker(6600 * time.Millisecond)
     defer ticker.Stop()
     active := false
+    cool := 0
+
+    filter := func(r *ScanResult) {
+        if len(r.Hotspots) > 0 {
+            cool = 0
+            out <- r
+        } else {
+            // `iwlist scan` occasionally fails to see hotspots.
+            // Send empty result only if seeing no hotspots twice in a row.
+            cool++
+            if cool >= 2 {
+                cool = 2
+                out <- r
+            }
+        }
+    }
 
     for {
         select {
@@ -77,7 +93,7 @@ func WifiScan(in <-chan int, out chan<- *ScanResult, notify chan<- int, id int) 
             switch ctrl {
             case ScanStart:
                 active = true
-                out <- scanForResult()
+                filter(scanForResult())
             case ScanStop:
                 active = false
             default:
@@ -85,7 +101,7 @@ func WifiScan(in <-chan int, out chan<- *ScanResult, notify chan<- int, id int) 
             }
         case <-ticker.C:
             if active {
-                out <- scanForResult()
+                filter(scanForResult())
             }
         }
     }
