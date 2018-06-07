@@ -50,7 +50,7 @@ Otherwise, there would be no hope of using it.)
 Solution: Before inserting the SD card into the Pi, insert a file
 `wpa_supplicant.conf` with the correct credentials into the SD card's boot
 partition, presumably after looking up what the file should look like on the
-web. Inconvenient for the experienced, arduous for the newly initiated.
+web. Inconvenient for the experienced, intimidating for the newly initiated.
 
 #### Problem #2: What is my Pi's IP address?
 
@@ -62,7 +62,7 @@ setting, as in the current scenario.
 instead. This works on a one-man island. In our 10-man room, people may have
 freshly imaged their SD cards, all of which have identical hostnames! (You can
 change hostname by editing some files on the SD card pre-boot. Again,
-inconvenient for the experienced, arduous for the newly initiated.)
+inconvenient for the experienced, intimidating for the newly initiated.)
 
 Furthermore, some network blocks multicast DNS traffic, so `whatever.local`
 simply wouldn't work.
