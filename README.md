@@ -2,7 +2,7 @@
 
 1. USB-connect a Raspberry Pi and a Mobile Phone
 
-2. The Phone's app allows you to:
+2. The Phone's app pops up, allows you to:
    - connect Raspberry Pi to a WiFi hotspot
    - look up Raspberry Pi's IP addresses
    - enable Raspberry Pi's SSH and VNC server
@@ -13,10 +13,13 @@
 3. Use your favorite terminal emulator (PuTTY?) or VNC client (RealVNC?)
    to enter the Pi
 
+---------------------------------------------
+
 Plug n Pi's software consists of two parts:
 
-1. On the Pi side, there is the USB server. **This page concerns the server (and
-   general info)**. The server has been tested on **Raspbian Stretch** on:
+1. On the Pi side, there is the USB server. **This page concerns the server, in
+   addition to general info**. The server has been tested on **Raspbian
+   Stretch** on:
 
    - Model 3 B+
    - Model 3 B
@@ -26,12 +29,12 @@ Plug n Pi's software consists of two parts:
    Android](https://github.com/nickoala/pnpi-android). No iPhone support in the
    foreseeable future. The Android app has been tested on the following devices:
 
-|          Model         | Android version | API level |
-|:----------------------:|:---------------:|:---------:|
-| Samsung Galaxy Express |           4.1.2 |        16 |
-| ASUS Fondpad ?         |           4.1.2 |        16 |
-| Samsung Galaxy S4      |           5.0.1 |        21 |
-| Samsung Tab A          |           7.1.1 |        25 |
+   |          Model         | Android version | API level |
+   |:----------------------:|:---------------:|:---------:|
+   | Samsung Galaxy Express |           4.1.2 |        16 |
+   | ASUS Fondpad ?         |           4.1.2 |        16 |
+   | Samsung Galaxy S4      |           5.0.1 |        21 |
+   | Samsung Tab A          |           7.1.1 |        25 |
 
 ## What problems am I trying to solve?
 
@@ -39,7 +42,7 @@ Imagine a room with 10 people who have their own Raspberry Pi. The room is not
 dedicated to the usage of Single Board Computers, so there is no monitor,
 keyboard, and mouse available. Everyone brings their own laptops. The only way
 to work on Raspberry Pi is remote login over network. (Let's forget about
-console cables. Very few people use it.)
+console cables. Very few people use it. Nobody ever brings it.)
 
 The room has a WiFi hotspot, but the hotspot/router belongs to the company, not
 under your control. (But, of course, you know the SSID and passphrase.
@@ -62,15 +65,16 @@ setting, as in the current scenario.
 instead. This works on a one-man island. In our 10-man room, people may have
 freshly imaged their SD cards, all of which have identical hostnames! (You can
 change hostname by editing some files on the SD card pre-boot. Again,
-inconvenient for the experienced, intimidating for the newly initiated.)
+inconvenient or intimidating (or both), depending on your experience level.)
 
 Furthermore, some network blocks multicast DNS traffic, so `whatever.local`
 simply wouldn't work.
 
 (Non-)Solution #3: Network scan. Again, this works better on a one-man island.
-Here, the scanner may not be able to display the hostname of each Pi (even if
-they are different). All people in the room are left wondering which IP belongs
-to which Pi belongs to whom!
+Here, the scanner shows you 10 Pi with 10 IP addresses. All people in the room
+are left wondering which IP belongs to which Pi belongs to whom! There is no
+guarantee the scanner can display hostnames. Even if it can, the issue of
+identical hostnames remains.
 
 In real life, I've seen people bringing their own personal hotspots. One Hotspot
 per Pi (or two). I think it's ridiculous.
@@ -107,14 +111,15 @@ USB hosts, not USB devices.
 Raspbian package is not yet available. For now, you have to build the server
 yourself.
 
-Install the Go language compiler and libusb:
+Install the Go language compiler (my version is 1.7.4) and libusb:
 ```
 sudo apt-get install golang libusb-1.0-0 libusb-1.0-0-dev
 ```
 
 Obtain `gousb`, Go's USB package. Normally, we do that with `go get`, but
 `gousb` has introduced some breaking changes recently. I need an older version.
-The following gets an older version while preserving Go's directory conventions:
+The following gets that older version while preserving Go's directory
+conventions:
 ```
 mkdir ~/pnpi
 cd ~/pnpi
@@ -139,26 +144,42 @@ You should have an executable file named `pnpi` in the working directory.
 
 ## Run
 
-Plug n Pi Server requires a shell script `raspi-config` (customized from the
+Plug n Pi Server requires a shell script `raspi-config` (adapted from the
 [official configuration tool](https://github.com/RPi-Distro/raspi-config)) to
 perform some system operations. It has to be placed alongside the `pnpi`
-executable before they can run properly:
+executable:
 
 ```
 cp src/pnpi/raspi-config .
 chmod +x raspi-config
-sudo ./pnpi
 ```
 
-Now, plug in the Phone (with [the app](https://github.com/nickoala/pnpi-android)
-installed) to see how it works.
+Then, `pnpi` is ready to run.
+
+Run it, and you will get a few seemingly error messages. They are normal, being
+the result of testing those built-in components on Raspberry Pi's USB bus (e.g.
+USB hub, ethernet adapter):
+
+```
+$ sudo ./pnpi
+
+2018/06/10 17:01:29 Requesting switch: {1 1 1d6b 0002}
+2018/06/10 17:01:29 Cannot switch to accessory mode: {1 1 1d6b 0002}, libusb: i/o error [code -1]
+2018/06/10 17:01:29 Requesting switch: {1 3 0424 ec00}
+2018/06/10 17:01:29 Cannot switch to accessory mode: {1 3 0424 ec00}, libusb: pipe error [code -9]
+2018/06/10 17:01:29 Requesting switch: {1 2 0424 9514}
+2018/06/10 17:01:29 Cannot switch to accessory mode: {1 2 0424 9514}, libusb: pipe error [code -9]
+```
+
+Now, plug in the Phone, [the app](https://github.com/nickoala/pnpi-android)
+should pop up, or a dialog box would pop up if the app has not been installed.
 
 ## Auto-start
 
-I use systemd's path-based activation (thanks to [Mark
-Stosberg](https://superuser.com/a/1322879/762013) for the suggestion): once the
-USB bus is ready, start Plug n Pi Server. Two files have to be created under the
-directory `/etc/systemd/system/`.
+I use systemd's path-based activation (thanks to [Mark Stosberg's
+suggestion](https://superuser.com/a/1322879/762013)): once the USB bus is ready,
+start Plug n Pi Server. Two files have to be created under the directory
+`/etc/systemd/system/`.
 
 First, the service unit, named `pnpi.service`:
 ```
@@ -189,49 +210,59 @@ Enable the path unit:
 ```
 $ sudo systemctl enable pnpi.path
 ```
+Reboot to confirm.
 
 ## Q&A
 
-#### I've plugged in the Pi, but the Phone/App never reacts. I'm sure Pi is powered on.
+1. **I've plugged in the Pi, but the Phone/App never reacts. I'm sure Pi is
+   powered on.**
 
-Check if Phone is charging ...
+   Check if Phone is charging ...
 
-If it is not:
+   If it is not:
 
-- **The USB cable connecting Pi and Phone may not be fully plugged in.**
+   - **The USB cable connecting Pi and Phone may not be fully plugged in.**
 
-If it is:
+   If it is:
 
-- A USB cable usually includes two pairs of wires: one for passing power, one
-  for passing data. Some cables only have the power pair. For Plug n Pi to work,
-  **the USB cable connecting Pi and Phone must have data wires.**
+   - A USB cable usually includes two pairs of wires: one for passing power, one
+     for passing data. Some cables only have the power pair. For Plug n Pi to
+     work, **the USB cable connecting Pi and Phone must have data wires.**
 
-- If Pi is under-voltage, it may not be able to enumerate USB devices properly
-  (although it can still charge the phone somewhat). **Try using a better power
-  adapter and a better power cable to power the Pi.**
+   - If Pi is under-voltage, it may not be able to enumerate USB devices
+     properly (although it can still charge the phone somewhat). **Try using a
+     better power adapter and a better power cable to power the Pi.**
 
-#### App keeps disconnecting from Pi, for no apparent reason.
+2. **App keeps disconnecting from Pi, for no apparent reason.**
 
-A sign that Pi may be under-voltage. **Try using a better power adapter and a
-better power cable to power the Pi.**
+   A sign that Pi may be under-voltage. **Try using a better power adapter and a
+   better power cable to power the Pi.**
 
-#### App keeps telling me "Plug n Pi Server is not enabled on Pi". But I'm sure it's enabled.
+3. **App keeps telling me "Plug n Pi Server is not enabled" or something like
+   that. But I'm sure it's enabled.**
 
-- **Try removing all USB attachments from Pi, then re-plug Phone to Pi.** When
-  more than one USB devices are plugged in, Pi does not know which one is the
-  Phone. It queries each device in turn. Most USB devices give a definite
-  answer, but some USB dongles confuse the Pi.
+   - **Try removing all USB attachments from Pi, then re-plug Phone to Pi.**
+     When more than one USB devices are plugged in, Pi does not know which one
+     is the Phone. It queries each device in turn. Most USB devices give a
+     definite answer, but some USB dongles confuse the Pi.
 
-- For some reason, Phone may be unable to switch to Android accessory mode.
-  **Try re-starting Phone.**
+   - Another possibility is, for some reason, Phone cannot switch to Android
+     Accessory Mode. **Try re-starting Phone.**
 
-#### App is showing Pi's IP address(es) and SSH is turned on, but I still can't SSH in!
+4. **App is showing Pi's IP address(es) and SSH is turned on, but I still can't
+   SSH in!**
 
-Remember, **your computer has to be on the same LAN with Pi** for the IP
-address(es) to be useful.
+   Remember, **your computer has to be on the same LAN with Pi** for the IP
+   address(es) to be useful.
 
-#### Do I lose the ability to transfer files between Phone and Pi?
+5. **When using Plug n Pi, do I lose the ability to transfer files between Phone
+   and Pi over USB?**
 
-Yes. To transfer files, Phone and Pi have to be on MTP. Plug n Pi forces them to
-leave MTP and talk on Android Open Accessory Protocol. To be able to transfer
-files again, Plug n Pi Server has to be disabled.
+   Yes. To transfer files, Phone and Pi have to be on MTP, but Plug n Pi forces
+   them to use Android Open Accessory Protocol. To be able to transfer files
+   over USB, you can disable Plug n Pi Server on Raspberry Pi, or try a simple
+   workaround as follows.
+
+   Plug n Pi Server is designed to talk to one Phone at a time. The first Phone
+   plugged in gets switched to Android Accessory Mode. The second Phone plugged
+   in, however, stays on MTP and should be able to transfer files with Pi.
