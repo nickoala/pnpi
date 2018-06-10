@@ -86,6 +86,9 @@ address? Yes, it's an overkill.
 **In short, there are ways to deal with the problems. None is satisfactory.
 I want a better solution.**
 
+What can be better than using a phone, connected via USB, to control a Raspberry
+Pi and to act as an information display?
+
 ## How does it work?
 
 Normally, when a phone is USB-plugged into a computer (Pi included), the default
