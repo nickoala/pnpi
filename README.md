@@ -96,7 +96,7 @@ phone in a more generic manner.
 The computer implements [Android Open Accessory
 Protocol](https://source.android.com/devices/accessories/aoa) which constitutes
 sending some specific control requests to the phone over USB. In response, the
-phone switch to so-called [Accessory
+phone switches to so-called [Accessory
 Mode](https://developer.android.com/guide/topics/connectivity/usb/accessory),
 and the computer becomes (to the phone) a USB accessory. They can freely
 exchange bytes afterwards. Plug n Pi implements a custom protocol on top of this
