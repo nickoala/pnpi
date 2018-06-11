@@ -86,8 +86,8 @@ address? Yes, it's an overkill.
 **In short, there are ways to deal with the problems. None is satisfactory.
 I want a better solution.**
 
-What can be better than using a phone, connected via USB, to control a Raspberry
-Pi and to act as an information display?
+What can be better than using a phone, connected via USB, as a UI to Raspberry
+Pi? Being 1-to-1 erases all confusions.
 
 ## How does it work?
 
@@ -160,8 +160,8 @@ chmod +x raspi-config
 Then, `pnpi` is ready to run.
 
 Run it, and you will get a few seemingly error messages. They are normal, being
-the result of testing those built-in components on Raspberry Pi's USB bus (e.g.
-USB hub, ethernet adapter):
+the result of testing those built-in components (e.g. USB hub, ethernet adapter)
+on Raspberry Pi's USB bus:
 
 ```
 $ sudo ./pnpi
