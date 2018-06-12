@@ -2,7 +2,7 @@
 
 1. USB-connect a Raspberry Pi and a Mobile Phone
 
-2. The Phone's app pops up, allows you to:
+2. The Phone's app allows you to:
    - connect Raspberry Pi to a WiFi hotspot
    - look up Raspberry Pi's IP addresses
    - enable Raspberry Pi's SSH and VNC server
