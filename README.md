@@ -65,13 +65,13 @@ setting, as in the current scenario.
 instead. This works on a one-man island. In our 10-man room, people may have
 freshly imaged their SD cards, all of which have identical hostnames! (You can
 change hostname by editing some files on the SD card pre-boot. Again,
-inconvenient or intimidating (or both), depending on your experience level.)
+inconvenient or intimidating or both, depending on your experience level.)
 
 Furthermore, some network blocks multicast DNS traffic, so `whatever.local`
 simply wouldn't work.
 
 (Non-)Solution #3: Network scan. Again, this works better on a one-man island.
-Here, the scanner shows you 10 Pi with 10 IP addresses. All people in the room
+Here, the scanner shows you 10 Pi and 10 IP addresses. All people in the room
 are left wondering which IP belongs to which Pi belongs to whom! There is no
 guarantee the scanner can display hostnames. Even if it can, the issue of
 identical hostnames remains.
@@ -244,10 +244,11 @@ Reboot to confirm.
 3. **App keeps telling me "Plug n Pi Server is not enabled" or something like
    that. But I'm sure it's enabled.**
 
-   - **Try removing all USB attachments from Pi, then re-plug Phone to Pi.**
-     When more than one USB devices are plugged in, Pi does not know which one
-     is the Phone. It queries each device in turn. Most USB devices give a
-     definite answer, but some USB dongles confuse the Pi.
+   - Some USB dongles may block the Pi from talking to the Phone. **Try removing
+     all USB attachments from Pi, then re-plug Phone to Pi.** After finished
+     with looking up IP address, you may unplug Phone and re-plug USB dongles,
+     *while leaving Plug n Pi Server enabled on Raspberry Pi.* Plug n Pi Server
+     does not interfere with working USB dongles, as far as I know.
 
    - Another possibility is, for some reason, Phone cannot switch to Android
      Accessory Mode. **Try re-starting Phone.**
