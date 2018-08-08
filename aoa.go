@@ -3,7 +3,6 @@ package main
 import (
     "github.com/google/gousb"
     "fmt"
-    "log"
     "time"
     "strings"
 )
@@ -76,7 +75,7 @@ func propagateDeviceHistory(i DeviceIdentity, h DeviceHistory) DeviceHistory {
         }
     } else {
         if h == historySwitchRequested {
-            log.Printf("Not yet switched, treat as failed: %v", i)
+            LogInfof("Not yet switched, treat as failed: %v", i)
             return historySwitchFailed
         } else {
             return h
@@ -223,7 +222,7 @@ func openStack(i DeviceIdentity) (*AccessoryModeStack, error) {
     var stack AccessoryModeStack
     defer func() {
         if err != nil {
-            log.Printf("Cannot open stack: %v, %v", i, err)
+            LogInfof("Cannot open stack: %v, %v", i, err)
             stack.Close()
         }
     }()
@@ -301,13 +300,8 @@ func openStack(i DeviceIdentity) (*AccessoryModeStack, error) {
     return &stack, nil
 }
 
-const (
-    DataDirectionIn = 0x80
-    DataDirectionOut = 0x00
-)
-
 func controlRequestIn(d *gousb.Device, request uint8, val, idx uint16, data []byte) int {
-    x,err := d.Control(DataDirectionIn | gousb.RequestTypeVendor, request, val, idx, data)
+    x,err := d.Control(gousb.ControlIn | gousb.ControlVendor, request, val, idx, data)
     if err != nil {
         panic(err)
     }
@@ -315,12 +309,21 @@ func controlRequestIn(d *gousb.Device, request uint8, val, idx uint16, data []by
 }
 
 func controlRequestOut(d *gousb.Device, request uint8, val, idx uint16, data []byte) int {
-    x,err := d.Control(DataDirectionOut | gousb.RequestTypeVendor, request, val, idx, data)
+    x,err := d.Control(gousb.ControlOut | gousb.ControlVendor, request, val, idx, data)
     if err != nil {
         panic(err)
     }
     return x
 }
+
+const (
+    AoaManufacturer = "Nick Lee of Hong Kong"
+    AoaModel = "Plug n Pi Server"
+    AoaDescription = "The Raspberry side of Plug n Pi"
+    AoaProtocolVersion = "2"
+    AoaUri = "https://github.com/nickoala/pnpi"
+    AoaSerialNumber = "0123456789"
+)
 
 func switchToAccessoryMode(d *gousb.Device) (err error) {
     defer func() {
@@ -332,26 +335,17 @@ func switchToAccessoryMode(d *gousb.Device) (err error) {
         }
     }()
 
-    const (
-        manufacturer = "Nick Lee of Hong Kong"
-        model = "Plug n Pi Server"
-        description = "The Raspberry side of Plug n Pi"
-        protocolVersion = "1"
-        uri = "https://github.com/nickoala/pnpi"
-        serialNumber = "0123456789"
-    )
-
     version := controlRequestIn(d, 51, 0, 0, []byte{0x00,0x00})
     if !N(version).in(1, 2) {
         panic(fmt.Errorf("Invalid AOA version number: %v", version))
     }
 
-    controlRequestOut(d, 52, 0, 0, []byte(manufacturer + "\x00"))
-    controlRequestOut(d, 52, 0, 1, []byte(model + "\x00"))
-    controlRequestOut(d, 52, 0, 2, []byte(description + "\x00"))
-    controlRequestOut(d, 52, 0, 3, []byte(protocolVersion + "\x00"))
-    controlRequestOut(d, 52, 0, 4, []byte(uri + "\x00"))
-    controlRequestOut(d, 52, 0, 5, []byte(serialNumber + "\x00"))
+    controlRequestOut(d, 52, 0, 0, []byte(AoaManufacturer + "\x00"))
+    controlRequestOut(d, 52, 0, 1, []byte(AoaModel + "\x00"))
+    controlRequestOut(d, 52, 0, 2, []byte(AoaDescription + "\x00"))
+    controlRequestOut(d, 52, 0, 3, []byte(AoaProtocolVersion + "\x00"))
+    controlRequestOut(d, 52, 0, 4, []byte(AoaUri + "\x00"))
+    controlRequestOut(d, 52, 0, 5, []byte(AoaSerialNumber + "\x00"))
     controlRequestOut(d, 53, 0, 0, nil)
     return nil
 }
@@ -388,24 +382,24 @@ func OpenAccessoryModeStack() *AccessoryModeStack {
         if !identityOfAccessoryMode.Nil() {
             stack, err := openStack(identityOfAccessoryMode)
             if err == nil {
-                log.Printf("Accessory mode opened: %v", identityOfAccessoryMode)
+                LogInfof("Accessory mode opened: %v", identityOfAccessoryMode)
                 return stack
             }
-            log.Printf("Cannot open accessory mode: %v, %v", identityOfAccessoryMode, err)
+            LogInfof("Cannot open accessory mode: %v, %v", identityOfAccessoryMode, err)
             currentDeviceMap[identityOfAccessoryMode] = historyOpenFailed
         }
 
         if !identityToSwitch.Nil() {
-            log.Printf("Requesting switch: %v", identityToSwitch)
+            LogInfof("Requesting switch: %v", identityToSwitch)
             err := requestSwitch(identityToSwitch)
             if err != nil {
-                log.Printf("Cannot switch to accessory mode: %v, %v", identityToSwitch, err)
+                LogInfof("Cannot switch to accessory mode: %v, %v", identityToSwitch, err)
                 currentDeviceMap[identityToSwitch] = historySwitchFailed
             } else {
-                log.Printf("Switch to accessory mode requested: %v", identityToSwitch)
+                LogInfof("Switch to accessory mode requested: %v", identityToSwitch)
                 currentDeviceMap[identityToSwitch] = historySwitchRequested
 
-                log.Println("Wait 1 second for it to come on bus again")
+                LogInfo("Wait 1 second for it to come on bus again")
                 time.Sleep(1 * time.Second)
             }
         } else {

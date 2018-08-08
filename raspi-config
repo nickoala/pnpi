@@ -185,6 +185,35 @@ do_wifi_ssid_disconnect() {
   wpa_cli -i "$IFACE" disconnect > /dev/null 2>&1
 }
 
+get_wifi_country() {
+   grep country= /etc/wpa_supplicant/wpa_supplicant.conf | cut -d "=" -f 2
+}
+
+do_wifi_country() {
+  IFACE="$(list_wlan_interfaces | head -n 1)"
+  if [ -z "$IFACE" ]; then
+    # No wireless interface found
+    return 1
+  fi
+
+  if ! wpa_cli -i "$IFACE" status > /dev/null 2>&1; then
+    # Could not communicate with wpa_supplicant
+    return 1
+  fi
+
+  COUNTRY=$1
+
+  wpa_cli -i "$IFACE" set country "$COUNTRY"
+  if [ -f /run/wifi-country-unset ] && hash rfkill 2> /dev/null; then
+      rfkill unblock wifi
+  fi
+  wpa_cli -i "$IFACE" save_config > /dev/null 2>&1
+}
+
+list_wifi_countries() {
+  cat /usr/share/zoneinfo/iso3166.tab | grep '^[^#]' | sed 's/\t/,/'
+}
+
 # Everything else needs to be run as root
 if [ $(id -u) -ne 0 ]; then
   printf "Script must be run as root. Try 'sudo raspi-config'\n"

@@ -32,7 +32,7 @@ Plug n Pi's software consists of two parts:
    |          Model         | Android version | API level |
    |:----------------------:|:---------------:|:---------:|
    | Samsung Galaxy Express |           4.1.2 |        16 |
-   | ASUS Fondpad ?         |           4.1.2 |        16 |
+   | ASUS Fondpad           |           4.1.2 |        16 |
    | Samsung Galaxy S4      |           5.0.1 |        21 |
    | Samsung Tab A          |           7.1.1 |        25 |
 
@@ -119,16 +119,17 @@ Install the Go language compiler (my version is 1.7.4) and libusb:
 sudo apt-get install golang libusb-1.0-0 libusb-1.0-0-dev
 ```
 
-Obtain `gousb`, Go's USB package. Normally, we do that with `go get`, but
-`gousb` has introduced some breaking changes recently. I need an older version.
-The following gets that older version while preserving Go's directory
-conventions:
+Obtain `gousb`, Go's USB package. Normally, we do that with `go get`, but I
+prefer cloning the repository. In case of breaking changes, I can always
+checkout the desired version. I'm also preserving Go's directory conventions:
 ```
 mkdir ~/pnpi
 cd ~/pnpi
 git clone https://github.com/google/gousb src/github.com/google/gousb
-cd src/github.com/google/gousb
-git checkout d036636
+
+# In case you want a version that works for sure:
+# cd src/github.com/google/gousb
+# git checkout 92967a7
 ```
 
 Obtain Plug n Pi Server's source code:
@@ -143,7 +144,7 @@ export GOPATH=`pwd`
 go build pnpi
 ```
 
-You should have an executable file named `pnpi` in the working directory.
+An executable file named `pnpi` should be in the working directory.
 
 ## Run
 
@@ -184,13 +185,14 @@ suggestion](https://superuser.com/a/1322879/762013)): once the USB bus is ready,
 start Plug n Pi Server. Two files have to be created under the directory
 `/etc/systemd/system/`.
 
-First, the service unit, named `pnpi.service`:
+First, the service unit, named `pnpi.service` (to avoid flooding systemd logs,
+`-z` is added to the command to emit less output):
 ```
 [Unit]
 Description=Plug n Pi Server
 
 [Service]
-ExecStart=/home/pi/pnpi/pnpi
+ExecStart=/home/pi/pnpi/pnpi -z
 User=root
 ```
 

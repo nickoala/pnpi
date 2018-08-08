@@ -2,14 +2,34 @@ package main
 
 import (
     "strings"
+    "os"
     "os/exec"
     "path/filepath"
 )
 
-var ScriptDirectory = ""
+var scriptDirectory = ""
+
+func SetScriptDirectory(d string) {
+    scriptDirectory = d
+}
+
+func CheckScript() {
+    // Ensure raspi-config present
+    path := filepath.Join(scriptDirectory, "raspi-config")
+    info, err := os.Stat(path)
+    if err != nil {
+        LogFatalf("%s not found: %v", path, err)
+    }
+
+    // Check executable bits
+    mode := info.Mode()
+    if (mode & 0x49 != 0x49) {  // 0x49 == 001001001
+        LogFatalf("%s must be executable, e.g. rwxr-xr-x", path)
+    }
+}
 
 func raspi_config(a ...string) (string, error) {
-    b, err := exec.Command(filepath.Join(ScriptDirectory, "raspi-config"), a...).Output()
+    b, err := exec.Command(filepath.Join(scriptDirectory, "raspi-config"), a...).Output()
     return string(b), err
 }
 
@@ -65,12 +85,7 @@ func DefaultWlanInterface() (string, error) {
     if err != nil {
         return "", err
     }
-
-    // Imitate raspi-config taking the first line.
-    return strings.SplitN(out, "\n", 2)[0], err
-    // In the case of no wlan, output will be "\n".
-    // SplitN("\n", "\n", 1) return ["\n"], but I want an empty string.
-    // Thus, '2' above.
+    return strings.SplitN(strings.TrimSpace(out), "\n", 2)[0], err
 }
 
 func ReportSsid(name string) (string, error) {
@@ -79,4 +94,33 @@ func ReportSsid(name string) (string, error) {
         return "", err
     }
     return strings.TrimSuffix(string(out), "\n"), err
+}
+
+func WifiCountryCode() (string, error) {
+    out, err := raspi_config("get_wifi_country")
+    if err != nil {
+        return "", err
+    }
+    return strings.TrimSpace(out), err
+}
+
+func AvailableWifiCountries() ([]Country, error) {
+    out, err := raspi_config("list_wifi_countries")
+    if err != nil {
+        return make([]Country, 0), err
+    }
+
+    lines := strings.Split(strings.TrimSpace(out), "\n")
+    countries := make([]Country, len(lines))
+
+    for i,n := range lines {
+        c := strings.SplitN(n, ",", 2)  // split into country code, name
+        countries[i] = Country{ c[0], c[1] }
+    }
+    return countries, err
+}
+
+func SetWifiCountry(code string) error {
+    _, err := raspi_config("do_wifi_country", code)
+    return err
 }

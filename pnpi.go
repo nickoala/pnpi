@@ -2,9 +2,11 @@ package main
 
 import (
     "fmt"
-    "log"
+    "flag"
+    "strings"
     "io"
     "os"
+    "os/exec"
     "path/filepath"
     "encoding/json"
     "encoding/binary"
@@ -18,10 +20,10 @@ func RecoverDo(f func(interface{}), g func()) {
 func ReadCommands(r io.Reader, out chan<- *Command) {
     defer RecoverDo(
         func(x interface{}) {
-            log.Println("USB Reader terminates due to:", x)
+            LogDebug("USB Reader terminates due to:", x)
         },
         func() {
-            log.Println("USB Reader terminates normally. This should never happen.")
+            LogDebug("USB Reader terminates normally. This should never happen.")
         },
     )
     defer close(out)
@@ -36,39 +38,39 @@ func ReadCommands(r io.Reader, out chan<- *Command) {
     }
 }
 
-func WriteReports(ep *gousb.OutEndpoint, in <-chan *Report, sent chan<- bool, notify chan<- int, id int) {
+func WriteReports(ep *gousb.OutEndpoint, in <-chan interface{}, sent chan<- bool, notify chan<- int, id int) {
     defer RecoverDo(
         func(x interface{}) {
             notify <- id
-            log.Println("USB Writer terminates due to:", x)
+            LogDebug("USB Writer terminates due to:", x)
         },
         func() {
-            log.Println("USB Writer terminates normally")
+            LogDebug("USB Writer terminates normally")
         },
     )
 
-    for rpt := range in {
+    for obj := range in {
         var body []byte
         var err error
 
-        if rpt == nil {
+        if obj == nil {
             if body, err = json.Marshal(struct{}{}); err != nil {
                 panic(err)
             }
         } else {
-            if body, err = json.Marshal(rpt); err != nil {
+            if body, err = json.Marshal(obj); err != nil {
                 panic(err)
             }
         }
 
         length := len(body)
         if length > 32767 {  // Java short's max value
-            log.Println("USB not writing. Payload too long:", string(body))
+            LogInfo("USB not writing. Payload too long:", string(body))
             sent <- false
             continue
         }
 
-        log.Printf("Writing USB Payload (%d bytes): %s", length, string(body))
+        LogDebugf("Writing USB Payload (%d bytes): %s", length, string(body))
 
         header := make([]byte, 2)
         binary.BigEndian.PutUint16(header, uint16(length))
@@ -85,13 +87,18 @@ func WriteReports(ep *gousb.OutEndpoint, in <-chan *Report, sent chan<- bool, no
     }
 }
 
+func RetrieveChoices() *SystemChoices {
+    countries,_ := AvailableWifiCountries()
+    return NewSystemChoices(countries)
+}
+
 func Interact(stack *AccessoryModeStack) {
     defer RecoverDo(
         func(x interface{}) {
-            log.Println("Interactor exit due to:", x)
+            LogDebug("Interactor exit due to:", x)
         },
         func() {
-            log.Println("Interactor exit normally")
+            LogDebug("Interactor exit normally")
         },
     )
 
@@ -111,7 +118,7 @@ func Interact(stack *AccessoryModeStack) {
         scannerId
     )
 
-    usbOut, sentIn := make(chan *Report, 9), make(chan bool)
+    usbOut, sentIn := make(chan interface{}, 9), make(chan bool)
     go WriteReports(stack.OutEndpoint, usbOut, sentIn, notifyIn, usbWriterId)
     defer close(usbOut)  // terminate writer
     usbWriterLive := true
@@ -125,8 +132,8 @@ func Interact(stack *AccessoryModeStack) {
     //   or stream closed inadvertently on the app side. We can expect user to
     //   open the app or re-plug USB very soon.
 
-    monitorControlOut, systemReportsIn := make(chan int, 9), make(chan *SystemReport)
-    go MonitorSystemStates(monitorControlOut, systemReportsIn, notifyIn, monitorId)
+    monitorControlOut, monitorReportsIn := make(chan int, 9), make(chan *MonitorReport)
+    go MonitorSystem(monitorControlOut, monitorReportsIn, notifyIn, monitorId)
     defer close(monitorControlOut)  // terminate monitor
     monitorLive := true
 
@@ -140,21 +147,29 @@ func Interact(stack *AccessoryModeStack) {
     defer close(scannerControlOut)
     scannerLive := true
 
+    choicesRetrieved := false
+
     for {
         select {
         case command, ok := <-usbIn:
             if !ok {
-                log.Println("USB Reader died. I am dying too.")
+                LogDebug("USB Reader died. I am dying too.")
                 return
             }
 
-            log.Printf("USB command received: %v", command)
+            LogDebugf("USB command received: %v", command)
 
             switch command.Action {
-            case "system":
+            case "monitor":
                 if monitorLive {
                     switch command.Args[0] {
-                    case "start": monitorControlOut <- MonitorStart
+                    case "start":
+                        if !choicesRetrieved {
+                            usbOut <- RetrieveChoices()
+                            choicesRetrieved = true
+                        }
+                        monitorControlOut <- MonitorStart
+
                     case "stop":  monitorControlOut <- MonitorStop
                     }
                 }
@@ -180,32 +195,32 @@ func Interact(stack *AccessoryModeStack) {
             }
 
         case commandResult := <-commandResultsIn:
-            log.Printf("Executor result received: %v", commandResult)
+            LogDebugf("Executor result received: %v", commandResult)
 
-        case systemReport := <-systemReportsIn:
-            log.Printf("Monitor report received: %v", systemReport)
+        case monitorReport := <-monitorReportsIn:
+            LogDebugf("Monitor report received: %v", monitorReport)
             if usbWriterLive {
                 if usbWriterPending > USB_WRITER_PENDING_MAX {
-                    log.Printf(
+                    LogInfof(
                         "USB pending-counter exceeds %d, writer seems blocked, I am dying.",
                         USB_WRITER_PENDING_MAX)
                     return
                 }
 
-                if systemReport == nil {
+                if monitorReport == nil {
                     usbOut <- nil
                     usbWriterPending++
-                } else if systemReport.Full {
-                    usbOut <- &Report{"system",
-                                    systemReport.Interfaces,
-                                    systemReport.Services,
-                                    nil}
+                } else if monitorReport.Full {
+                    usbOut <- NewSystemStates(
+                                    monitorReport.Interfaces,
+                                    monitorReport.Services,
+                                    monitorReport.WifiCountryCode)
                     usbWriterPending++
                 } else {
-                    usbOut <- &Report{"change",
-                                    systemReport.Interfaces,
-                                    systemReport.Services,
-                                    nil}
+                    usbOut <- NewSystemStatesChange(
+                                    monitorReport.Interfaces,
+                                    monitorReport.Services,
+                                    monitorReport.WifiCountryCode)
                     usbWriterPending++
                 }
             }
@@ -214,17 +229,17 @@ func Interact(stack *AccessoryModeStack) {
             usbWriterPending--
 
         case scanResult := <-scanResultsIn:
-            log.Printf("Scan result received: %v", scanResult)
+            LogDebugf("Scan result received: %v", scanResult)
             if usbWriterLive {
                 if usbWriterPending > USB_WRITER_PENDING_MAX {
-                    log.Printf(
+                    LogInfof(
                         "USB pending-counter exceeds %d, writer seems blocked, I am dying.",
                         USB_WRITER_PENDING_MAX)
                     return
                 }
 
                 if scanResult != nil {
-                    usbOut <- &Report{"scan", nil, nil, scanResult.Hotspots}
+                    usbOut <- scanResult
                     usbWriterPending++
                 }
             }
@@ -233,41 +248,70 @@ func Interact(stack *AccessoryModeStack) {
             switch (child) {
             case usbWriterId:
                 usbWriterLive = false
-                log.Println("USB Writer died")
+                LogDebug("USB Writer died")
             case monitorId:
                 monitorLive = false
-                log.Println("Monitor died")
+                LogDebug("Monitor died")
             case executorId:
                 executorLive = false
-                log.Println("Executor died")
+                LogDebug("Executor died")
             case scannerId:
                 scannerLive = false
-                log.Println("Scanner died")
+                LogDebug("Scanner died")
             }
         }
     }
 }
 
-func main() {
+const (
+    ServerVersion = "2.0"
+)
+
+func Init() bool {
+    printVersion := flag.Bool("version", false, "Print version number and exit")
+    lessOutput := flag.Bool("z", false, "Less output")
+
+    flag.Parse()
+
+    if (*printVersion) {
+        fmt.Println("Plug n Pi Server Version:", ServerVersion)
+        fmt.Println("Protocol Version:", AoaProtocolVersion)
+        return false
+    }
+
+    if (*lessOutput) {
+        SetLogLevel(Info)
+    } else {
+        SetLogLevel(Debug)
+    }
+
     dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
     if err != nil {
-        log.Fatal(err)
+        LogFatal(err)
     }
-    ScriptDirectory = dir
+    SetScriptDirectory(dir)
 
-    // Check raspi-config present
-    raspiconfigLocation := filepath.Join(ScriptDirectory, "raspi-config")
-    info, err := os.Stat(raspiconfigLocation)
-    if err != nil {
-        log.Fatalf("%s not found: %v", raspiconfigLocation, err)
+    return true
+}
+
+func CheckRunning() {
+    out, err := exec.Command("pgrep", "--exact", "pnpi").Output()
+    if err == nil {
+        lines := strings.Split(strings.TrimSpace(string(out)), "\n")
+        if len(lines) > 1 {
+            LogFatal("pnpi is already running")
+        }
     }
+}
 
-    // Check executable bits set
-    mode := info.Mode()
-    if (mode & 0x49 != 0x49) {  // 0x49 == 001001001
-        log.Fatalf("%s must be always executable, e.g. rwxr-xr-x", raspiconfigLocation)
-    }
+func Check() {
+    CheckScript()
+    CheckRunning()
+}
 
+func main() {
+    if !Init() { return }
+    Check()
     for {
         func() {
             s := OpenAccessoryModeStack()

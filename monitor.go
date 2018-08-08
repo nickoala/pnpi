@@ -2,7 +2,6 @@ package main
 
 import (
     "fmt"
-    "log"
     "strings"
     "net"
     "time"
@@ -11,9 +10,17 @@ import (
 type NetworkInterfaceMap map[string]NetworkInterface
 type ServiceMap map[string]Service
 
-type SystemStates struct {
+type SystemInfo struct {
     Interfaces NetworkInterfaceMap
     Services ServiceMap
+    WifiCountryCode string
+}
+
+type MonitorReport struct {
+    Full bool
+    Interfaces []NetworkInterface
+    Services []Service
+    WifiCountryCode string
 }
 
 func (m NetworkInterfaceMap) Keys() *StringSet {
@@ -53,7 +60,7 @@ func (m ServiceMap) Values() []Service {
 func gatherInterfaces() NetworkInterfaceMap {
     wlan00, err := DefaultWlanInterface()
     if err != nil {
-        log.Println("Cannot obtain default wlan:", err)
+        LogDebug("Cannot obtain default wlan:", err)
     }
 
     isDefaultWlan := func (n string) bool {
@@ -63,7 +70,7 @@ func gatherInterfaces() NetworkInterfaceMap {
     ifmap := make(NetworkInterfaceMap)
     ifaces, err := net.Interfaces()
     if err != nil {
-        log.Println("Cannot obtain network interfaces:", err)
+        LogDebug("Cannot obtain network interfaces:", err)
         return ifmap
     }
 
@@ -77,7 +84,7 @@ func gatherInterfaces() NetworkInterfaceMap {
                                     Name: i.Name,
                                     IPs: ps,
                                     WiFi: isDefaultWlan(i.Name)}
-            log.Printf("Cannot obtain addresses for %v: %v", i.Name, err)
+            LogDebugf("Cannot obtain addresses for %v: %v", i.Name, err)
             continue
         }
 
@@ -93,7 +100,7 @@ func gatherInterfaces() NetworkInterfaceMap {
         if strings.HasPrefix(i.Name, "wlan") && ps.Size() > 0 {
             ssid, err := ReportSsid(i.Name)
             if err != nil {
-                log.Println("Cannot obtain SSID:", err)
+                LogDebug("Cannot obtain SSID:", err)
             }
 
             ifmap[i.Name] = NetworkInterface{
@@ -120,21 +127,20 @@ func gatherServices() ServiceMap {
     }
 }
 
-func inspectSystem() *SystemStates {
-    return &SystemStates{gatherInterfaces(), gatherServices()}
+func getWifiCountryCode() string {
+    c,_ := WifiCountryCode()
+    return c
 }
 
-type SystemReport struct {
-    Full       bool
-    Interfaces []NetworkInterface
-    Services   []Service
+func inspectSystem() *SystemInfo {
+    return &SystemInfo { gatherInterfaces(), gatherServices(), getWifiCountryCode() }
 }
 
-func produceFullReport(s *SystemStates) *SystemReport {
-    return &SystemReport{true, s.Interfaces.Values(), s.Services.Values()}
+func produceFullReport(s *SystemInfo) *MonitorReport {
+    return &MonitorReport { true, s.Interfaces.Values(), s.Services.Values(), s.WifiCountryCode }
 }
 
-func produceReport(new *SystemStates, old *SystemStates) *SystemReport {
+func produceReport(new *SystemInfo, old *SystemInfo) *MonitorReport {
     if !new.Interfaces.Keys().Equal(old.Interfaces.Keys()) ||
             !new.Services.Keys().Equal(old.Services.Keys()) {
         return produceFullReport(new)
@@ -154,10 +160,10 @@ func produceReport(new *SystemStates, old *SystemStates) *SystemReport {
         }
     }
 
-    if ifaces == nil && servs == nil {
+    if ifaces == nil && servs == nil && new.WifiCountryCode == old.WifiCountryCode {
         return nil
     } else {
-        return &SystemReport{false, ifaces, servs}
+        return &MonitorReport { false, ifaces, servs, new.WifiCountryCode }
     }
 }
 
@@ -167,18 +173,18 @@ const (
     MonitorStop
 )
 
-func MonitorSystemStates(in <-chan int, out chan<- *SystemReport, notify chan<- int, id int) {
+func MonitorSystem(in <-chan int, out chan<- *MonitorReport, notify chan<- int, id int) {
     defer RecoverDo(
         func(x interface{}) {
             notify <- id
-            log.Println("Monitor terminates due to:", x)
+            LogDebug("Monitor terminates due to:", x)
         },
         func() {
-            log.Println("Monitor terminates normally")
+            LogDebug("Monitor terminates normally")
         },
     )
 
-    var current *SystemStates
+    var current *SystemInfo
 
     // Wait for first control code ...
     ctrl, ok := <-in

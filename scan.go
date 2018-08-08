@@ -2,16 +2,11 @@ package main
 
 import (
     "fmt"
-    "log"
     "os/exec"
     "regexp"
     "strconv"
     "time"
 )
-
-type ScanResult struct {
-    Hotspots []Hotspot
-}
 
 var hexPattern = regexp.MustCompile(`\\x[0-9a-fA-F]{2}`)
 
@@ -29,7 +24,7 @@ var infoPattern = regexp.MustCompile(`(?ms)Signal level=(-[0-9]+) dBm.*?Encrypti
 func scanForResult() *ScanResult {
     out, err := exec.Command("iwlist", "scan").Output()
     if err != nil {
-        log.Println("iwlist failed:", err)
+        LogDebug("iwlist failed:", err)
         return nil
     }
 
@@ -45,7 +40,7 @@ func scanForResult() *ScanResult {
 
         hotspots = append(hotspots, Hotspot{ssid, encryption=="off", signal})
     }
-    return &ScanResult{hotspots}
+    return NewScanResult(hotspots)
 }
 
 const (
@@ -57,10 +52,10 @@ func WifiScan(in <-chan int, out chan<- *ScanResult, notify chan<- int, id int) 
     defer RecoverDo(
         func(x interface{}) {
             notify <- id
-            log.Println("Scanner terminates due to:", x)
+            LogDebug("Scanner terminates due to:", x)
         },
         func() {
-            log.Println("Scanner terminates normally")
+            LogDebug("Scanner terminates normally")
         },
     )
 

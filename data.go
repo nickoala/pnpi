@@ -21,17 +21,57 @@ type Service struct {
     Running bool `json:"running"`
 }
 
+type SystemStates struct {
+    Type string                   `json:"type"`
+    Interfaces []NetworkInterface `json:"interfaces"`
+    Services []Service            `json:"services"`
+    WifiCountryCode string        `json:"wifi_country_code"`
+}
+
+func NewSystemStates(nis []NetworkInterface, ss []Service, wc string) *SystemStates {
+    return &SystemStates { "states", nis, ss, wc }
+}
+
+type SystemStatesChange struct {
+    Type string                   `json:"type"`
+    Interfaces []NetworkInterface `json:"interfaces,omitempty"`
+    Services []Service            `json:"services,omitempty"`
+    WifiCountryCode string        `json:"wifi_country_code"`
+    // WifiCountryCode: Don't omitempty, may want to pass empty string.
+    // Because it's always present, the field should always contain the latest country code.
+}
+
+func NewSystemStatesChange(nis []NetworkInterface, ss []Service, wc string) *SystemStatesChange {
+    return &SystemStatesChange { "change", nis, ss, wc }
+}
+
 type Hotspot struct {
     SSID string  `json:"ssid"`
     Open bool    `json:"open"`
     Signal int   `json:"signal"`
 }
 
-type Report struct {
-    Type string                   `json:"type"`
-    Interfaces []NetworkInterface `json:"interfaces,omitempty"`
-    Services   []Service          `json:"services,omitempty"`
-    Hotspots   []Hotspot          `json:"hotspots,omitempty"`
+type ScanResult struct {
+    Type string        `json:"type"`
+    Hotspots []Hotspot `json:"hotspots"`
+}
+
+func NewScanResult(hs []Hotspot) *ScanResult {
+    return &ScanResult { "scan", hs }
+}
+
+type Country struct {
+    Code string `json:"code"`
+    Name string `json:"name"`
+}
+
+type SystemChoices struct {
+    Type string         `json:"type"`
+    Countries []Country `json:"countries"`
+}
+
+func NewSystemChoices(cs []Country) *SystemChoices {
+    return &SystemChoices { "choices", cs }
 }
 
 type Command struct {
