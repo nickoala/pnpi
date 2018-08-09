@@ -102,8 +102,9 @@ sending some specific control requests to the phone over USB. In response, the
 phone switches to so-called [Accessory
 Mode](https://developer.android.com/guide/topics/connectivity/usb/accessory),
 and the computer becomes (to the phone) a USB accessory. They can freely
-exchange bytes afterwards. Plug n Pi implements a custom protocol on top of this
-data connection.
+exchange bytes afterwards. Plug n Pi implements a [custom
+protocol](https://github.com/nickoala/pnpi/blob/master/PROTOCOL.md) on top of
+this data connection.
 
 At all times, the computer serves as the USB host and provides power to the USB
 bus. This suits Raspberry Pi because the "big" ones (3B, 3B+) can only act as
