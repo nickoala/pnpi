@@ -110,10 +110,32 @@ At all times, the computer serves as the USB host and provides power to the USB
 bus. This suits Raspberry Pi because the "big" ones (3B, 3B+) can only act as
 USB hosts, not USB devices.
 
+## Install from package
+
+I have created a simple Debian package, and expect it to work on Raspbian
+Stretch only. It does a few things:
+
+- In directory `/usr/bin` put the executable `pnpi`
+- In directory `/usr/lib/pnpi` put the helper script `raspi-config`
+- In directory `/etc/systemd/system` put the systemd units `pnpi.service` and
+  `pnpi.path` (I intend to use path-based activation)
+
+```
+wget https://github.com/nickoala/raspi-booklets/raw/master/pnpi_2.1-1_armhf.deb
+sudo dpkg -i pnpi_2.1-1_armhf.deb
+sudo systemctl enable pnpi.path  # run on startup
+```
+
+To monitor Plug n Pi Server's activities, try:
+
+```
+journalctl -u pnpi -f
+```
+
 ## Build
 
-Raspbian package is not yet available. For now, you have to build the server
-yourself.
+If you like to be more hands-on and build the thing yourself, here are the
+steps.
 
 Install the Go language compiler (my version is 1.7.4) and libusb:
 ```
@@ -151,22 +173,20 @@ An executable file named `pnpi` should be in the working directory.
 
 Plug n Pi Server requires a shell script `raspi-config` (adapted from the
 [official configuration tool](https://github.com/RPi-Distro/raspi-config)) to
-perform some system operations. It has to be placed alongside the `pnpi`
-executable:
+perform some system operations. You have to tell `pnpi` where it is. I prefer
+them in the same directory:
 
 ```
 cp src/pnpi/raspi-config .
 chmod +x raspi-config
 ```
 
-Then, `pnpi` is ready to run.
-
-Run it, and you will get a few seemingly error messages. They are normal, being
-the result of testing those built-in components (e.g. USB hub, ethernet adapter)
-on Raspberry Pi's USB bus:
+Run it as below. You will get a few seemingly error messages. They are normal,
+being the result of testing those built-in components (e.g. USB hub, ethernet
+adapter) on Raspberry Pi's USB bus:
 
 ```
-$ sudo ./pnpi
+$ sudo ./pnpi -d .
 
 2018/06/10 17:01:29 Requesting switch: {1 1 1d6b 0002}
 2018/06/10 17:01:29 Cannot switch to accessory mode: {1 1 1d6b 0002}, libusb: i/o error [code -1]
@@ -177,7 +197,7 @@ $ sudo ./pnpi
 ```
 
 Now, plug in the Phone, [the app](https://github.com/nickoala/pnpi-android)
-should pop up, or a dialog box would pop up if the app has not been installed.
+should pop up, or a dialog box would prompt you to install the app.
 
 ## Auto-start
 
@@ -193,7 +213,7 @@ First, the service unit, named `pnpi.service` (to avoid flooding systemd logs,
 Description=Plug n Pi Server
 
 [Service]
-ExecStart=/home/pi/pnpi/pnpi -z
+ExecStart=/home/pi/pnpi/pnpi -d /home/pi/pnpi -z
 User=root
 ```
 

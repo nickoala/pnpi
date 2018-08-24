@@ -5,7 +5,6 @@ import (
     "flag"
     "strings"
     "io"
-    "os"
     "os/exec"
     "path/filepath"
     "encoding/json"
@@ -264,12 +263,13 @@ func Interact(stack *AccessoryModeStack) {
 }
 
 const (
-    ServerVersion = "2.0"
+    ServerVersion = "2.1"
 )
 
 func Init() bool {
-    printVersion := flag.Bool("version", false, "Print version number and exit")
+    scriptDirectory := flag.String("d", "", "Helper script directory")
     lessOutput := flag.Bool("z", false, "Less output")
+    printVersion := flag.Bool("version", false, "Print version number and exit")
 
     flag.Parse()
 
@@ -285,7 +285,12 @@ func Init() bool {
         SetLogLevel(Debug)
     }
 
-    dir, err := filepath.Abs(filepath.Dir(os.Args[0]))
+    if (*scriptDirectory == "") {
+        fmt.Println("No specified helper script directory. Use -d to specify.")
+        return false
+    }
+
+    dir, err := filepath.Abs(*scriptDirectory)
     if err != nil {
         LogFatal(err)
     }
