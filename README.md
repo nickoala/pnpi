@@ -127,6 +127,9 @@ sudo systemctl enable pnpi.path  # run on startup
 sudo reboot
 ```
 
+After reboot, plug in the Phone, [the app](https://github.com/nickoala/pnpi-android)
+should pop up, or a dialog box would prompt you to install the app.
+
 To monitor Plug n Pi Server's activities, try:
 
 ```
