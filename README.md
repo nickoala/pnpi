@@ -124,6 +124,7 @@ Stretch only. It does a few things:
 wget https://github.com/nickoala/raspi-booklets/raw/master/pnpi_2.1-1_armhf.deb
 sudo dpkg -i pnpi_2.1-1_armhf.deb
 sudo systemctl enable pnpi.path  # run on startup
+sudo reboot
 ```
 
 To monitor Plug n Pi Server's activities, try:
