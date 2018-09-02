@@ -235,7 +235,7 @@ Reboot to confirm.
 
 To monitor Plug n Pi Server's activities:
 ```
-journalctl -u pnpi -f
+$ journalctl -u pnpi -f
 ```
 
 ## Q&A
