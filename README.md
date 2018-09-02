@@ -112,29 +112,20 @@ USB hosts, not USB devices.
 
 ## Install from package
 
-I have created a simple Debian package, and expect it to work on Raspbian
-Stretch only. It does a few things:
-
-- In directory `/usr/bin` put the executable `pnpi`
-- In directory `/usr/lib/pnpi` put the helper script `raspi-config`
-- In directory `/etc/systemd/system` put the systemd units `pnpi.service` and
-  `pnpi.path` (I intend to use path-based activation)
+I have created a simple Debian package, tested on Raspbian Stretch only.
 
 ```
 wget https://github.com/nickoala/raspi-booklets/raw/master/pnpi_2.1-1_armhf.deb
 sudo dpkg -i pnpi_2.1-1_armhf.deb
-sudo systemctl enable pnpi.path  # run on startup
-sudo reboot
+sudo systemctl enable pnpi.path
 ```
+
+That last line is to invoke systemd's path-based activation. It basically tells
+Raspbian, on startup, to fire up Plug n Pi Server as soon as USB bus is ready.
+**Reboot to confirm.**
 
 After reboot, plug in the Phone, [the app](https://github.com/nickoala/pnpi-android)
 should pop up, or a dialog box would prompt you to install the app.
-
-To monitor Plug n Pi Server's activities, try:
-
-```
-journalctl -u pnpi -f
-```
 
 ## Build
 
@@ -241,6 +232,11 @@ Enable the path unit:
 $ sudo systemctl enable pnpi.path
 ```
 Reboot to confirm.
+
+To monitor Plug n Pi Server's activities:
+```
+journalctl -u pnpi -f
+```
 
 ## Q&A
 
