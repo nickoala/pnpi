@@ -32,7 +32,7 @@ Plug n Pi's software consists of two parts:
    |          Model         | Android version | API level |
    |:----------------------:|:---------------:|:---------:|
    | Samsung Galaxy Express |           4.1.2 |        16 |
-   | ASUS Fondpad           |           4.1.2 |        16 |
+   | ASUS Fonepad           |           4.1.2 |        16 |
    | Samsung Galaxy S4      |           5.0.1 |        21 |
    | Samsung Tab A          |           7.1.1 |        25 |
 
